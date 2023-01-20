@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Tue Jun 28 14:30:02 2022
+Created on Fri Jan 20 14:30:02 2023
 
-@author: mwinter
+@author: Max Kerr Winter
 """
 
-# A script to train a network for the memory kernel project
+# A script to train a neural network from a parameter file.
 
 import torch
 from torch import nn
@@ -67,18 +67,7 @@ def evaluate_loss(dataloader, model, loss_fn, device):
 
 
 if __name__ == "__main__":
-    # Check whether this is running on my laptop
-    current_dir = os.getcwd()
-    if current_dir[:6] == '/Users':
-        on_laptop = True
-    else:
-        on_laptop = False
-    
-    # base_path is defined assuming jobs are run in the output folder
-    if on_laptop:
-        base_path = './'
-    else:
-        base_path = '../'
+    base_path = './'
     
     if torch.cuda.is_available():
         device = "cuda"
@@ -88,22 +77,7 @@ if __name__ == "__main__":
         print('Training with CPU.')
     
     # Load any command line arguments
-    if len(sys.argv)==4:
-        model_name = sys.argv[3]
-
-        if sys.argv[1]=='True':
-            start_from_existing_model = True
-        else:
-            start_from_existing_model = False
-        
-        if sys.argv[2]=='True':
-            start_from_param_file = True
-        else:
-            start_from_param_file = False
-        
-        print('Running with command line arguments')
-
-    elif len(sys.argv)==8:    
+    if len(sys.argv)==8:    
         name_stub = sys.argv[7]
 
         if sys.argv[1]=='True':
@@ -125,15 +99,13 @@ if __name__ == "__main__":
         
         print('Running with command line arguments')
     else:
-        model_name = 'MaxEnt_testnet'
-        # model_name = 'MSE_testnet'
-        start_from_existing_model = True
-        start_from_param_file = False
-        noise_str = '-2'
+        model_name = 'F_to_K_test_model'
+        start_from_existing_model = False
+        start_from_param_file = True
         print('Running with default arguments')
 
 
-    ### Load or create model ###
+    # Load or create model
     start_epoch = -1
     model_output_dir = '{}models/{}/'.format(base_path, model_name)
     
@@ -141,7 +113,7 @@ if __name__ == "__main__":
         print('Loading existing model {}'.format(model_name))
         input_dir = '{}models/{}/'.format(base_path, model_name)
         params = aux.load_model_params('{}{}'.format(input_dir, model_name) + 
-                                       '_model_params.json')
+                                       '_params.json')
         
         hidden_layers = params['h_layer_widths']
         loss_function = params['loss_function']
@@ -164,7 +136,7 @@ if __name__ == "__main__":
         print('Creating model from parameter file')
         input_dir = '{}models/{}/'.format(base_path, model_name)
         params = aux.load_model_params('{}{}'.format(input_dir, model_name) + 
-                                       '_model_params.json')
+                                       '_params.json')
         hidden_layers = params['h_layer_widths']
         loss_function = params['loss_function']
         learning_rate = params['learning_rate']
@@ -176,69 +148,19 @@ if __name__ == "__main__":
             N_inputs, N_outputs) = aux.load_dataset(dataset, batch_size, 
                                                     base_path, model_name)
                 
-        if 'initial_condition_path' in params:
-            ic_path = params['initial_condition_path']
-            ic_input_dir, ic_model_name = aux.split_path(ic_path)
-            models, _= aux.load_models(ic_input_dir, ic_model_name, params, 
-                                       device)
-            model = models[-1]
-        else:
-            model = NeuralNetwork(n_in=N_inputs, n_out=N_outputs,
-                              h_layer_widths=hidden_layers).to(device)
-        
-        # Save initial state
-        dir_exists = os.path.isdir(model_output_dir)
-        if not dir_exists:
-            os.mkdir(model_output_dir)
-            
-        torch.save(model.state_dict(),'{}{}_model_epoch_0.pth'.format(
-            model_output_dir, model_name))
-        
-        if 'initial_condition_path' not in params:
-            ic_path = '{}models/{}_model_epoch_0.pth'.format(base_path, model_name)
-            params['initial_condition_path'] = ic_path
-            
-    else:
-        print('Creating new model.')
-
-        loss_function = 'MSELoss'
-        learning_rate = 1e-3
-        batch_size = -1
-        width = 10
-        depth = 6
-        dataset = 'F_to_M_noisy_-2'
-        L2_penalty = 10**(-3)
-        
-        (train_dataloader, test_dataloader, training_data, test_data, 
-            N_inputs, N_outputs) = aux.load_dataset(dataset, batch_size, base_path)
-        
-        hidden_layers = [width]*depth
         model = NeuralNetwork(n_in=N_inputs, n_out=N_outputs,
                               h_layer_widths=hidden_layers).to(device)
         
-        params = {}
-        params['batch_size'] = batch_size
-        params['dataset'] = dataset
-        params['loss_function'] = loss_function
-        params['learning_rate'] = learning_rate
-        params['L2_penalty'] = L2_penalty
-        params['N_inputs'] = N_inputs
-        params['N_outputs'] = N_outputs
-        params['h_layer_widths'] = hidden_layers
-        
         # Save initial state
-        model_output_dir = '{}models/{}/'.format(base_path, model_name)
         dir_exists = os.path.isdir(model_output_dir)
         if not dir_exists:
             os.mkdir(model_output_dir)
             
         torch.save(model.state_dict(),'{}{}_model_epoch_0.pth'.format(
-            model_output_dir, model_name))
-        
-        ic_path = '{}models/{}_model_epoch_0.pth'.format(base_path, model_name)
-        params['initial_condition_path'] = ic_path
-    
-    noise_str = dataset[-2:]
+                   model_output_dir, model_name))
+            
+    else:
+        raise ValueError('Must provide a parameter file or existing model.')
         
     # Check data_output_dir exists
     data_output_dir = '{}measured_data/{}/'.format(base_path, model_name)
@@ -246,8 +168,7 @@ if __name__ == "__main__":
     if not dir_exists:
         os.mkdir(data_output_dir)        
     
-    
-    ### Define loss function and optimizer ###       
+    # Define loss function and optimizer      
     if loss_function == 'CrossEntropy':
         loss_fn = nn.CrossEntropyLoss()
         
@@ -256,15 +177,6 @@ if __name__ == "__main__":
         
     elif loss_function == 'weighted_MSELoss':
         loss_fn = aux.make_weighted_MSELoss()
-        
-    elif loss_function == 'MaxEnt':
-        alpha = params['MaxEnt_alpha']
-        data_outpath = '{}data/F_to_M_data/noise_{}/'.format(base_path, 
-                                                             noise_str) 
-        time_outpath = data_outpath+'times_for_plotting.csv'
-        times = np.loadtxt(time_outpath)
-        times = torch.Tensor(times)
-        loss_fn = aux.make_MaxEntLoss(alpha, times)
         
     else:
         raise NameError('Provide a loss function')
@@ -277,40 +189,20 @@ if __name__ == "__main__":
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, 
                                  betas=adam_betas, weight_decay=w_decay)
         
-    # Save parameters that may have changed
-    if (N_inputs != params['N_inputs'] or 
-        N_outputs != params['N_outputs'] or
-        'initial_condition_path' not in params):
-        
-        params['N_inputs'] = N_inputs
-        params['N_outputs'] = N_outputs
-        ic_path = '{}models/{}_model_epoch_0.pth'.format(base_path, model_name)
-        params['initial_condition_path'] = ic_path
-    
-        aux.save_model_params(params,'{}{}_model_params.json'.format(
-                model_output_dir, model_name))
-       
-        
-    ### Train ###
-    if on_laptop:
-        save_freq = 1
-        epochs = 10
-    else:
-        save_freq = 100
-        epochs = 10000
+    # Train
+    save_freq = 10
+    N_epochs = 1000
     test_loss = []
     train_loss = []
     epoch_list = []
 
     print('Begin training')
-    for t in range(epochs):
-        t += start_epoch + 1
-        
-        # Save every Nth epoch
-        time_check = t - start_epoch
-
+    for t in range(N_epochs):
         train(train_dataloader, model, loss_fn, optimizer, device)
-                
+        
+        t += start_epoch + 1
+        time_check = t - start_epoch
+        
         # Save every Nth epoch
         if (time_check)%save_freq==0:
             print(f"Epoch {t+1}\n-------------------------------")
@@ -349,7 +241,7 @@ if __name__ == "__main__":
     print('Training finished')
     
     
-    ### Plot train loss, test loss, and an example ###
+    # Plot train loss, test loss
     epoch_array = np.array(epoch_list)
     N_steps = len(train_dataloader)
     timestep_array = epoch_array*N_steps
@@ -359,9 +251,14 @@ if __name__ == "__main__":
     dir_exists = os.path.isdir(plot_output_dir)
     if not dir_exists:
         os.mkdir(plot_output_dir)
-    
-    if start_epoch == -1:
-        start_epoch = 0 # for plotting
+
+    fig, ax = plt.subplots()
+    plt.plot(timestep_array, train_loss)
+    plt.yscale('log')
+    plt.title('Loss on train set')
+    plt.xlabel('Time/steps')
+    plt.savefig('{}{}_train_loss_log.pdf'.format(plot_output_dir, model_name), 
+                bbox_inches='tight')
 
     fig, ax = plt.subplots()
     plt.plot(timestep_array, test_loss)
@@ -371,23 +268,14 @@ if __name__ == "__main__":
     plt.savefig('{}{}_test_loss_log.pdf'.format(plot_output_dir, model_name), 
                 bbox_inches='tight')
     
-    fig, ax = plt.subplots()
-    plt.plot(timestep_array, train_loss)
-    plt.yscale('log')
-    plt.title('Loss on train set')
-    plt.xlabel('Time/steps')
-    plt.savefig('{}{}_train_loss_log.pdf'.format(plot_output_dir, model_name), 
-                bbox_inches='tight')
-    
-    
-    # Load times for plotting
-    time_path_stem = base_path + 'data/F_to_M_data/noise_{}/'.format(noise_str)
-    time_path = time_path_stem + 'times_for_plotting.csv'
+    # Plot an example from the test set
+    noise_str = dataset[-2:]
+    time_path_stem = base_path + 'data/F_to_K_data/noise_{}/'.format(noise_str)
+    time_path = time_path_stem + 'times_for_interpolated_K.txt'
     times_for_plotting = np.loadtxt(time_path)
     
-    # Plot an example from the test set
     model.eval()
-    with torch.no_grad(): # Turns off gradient calculations. This saves time.
+    with torch.no_grad():
         for X, y in test_dataloader:
             X, y = X.to(device), y.to(device)
             pred = model(X)
@@ -395,8 +283,9 @@ if __name__ == "__main__":
     
     plt_idx = 0
     fig, ax = plt.subplots()
-    plt.plot(times_for_plotting, y[plt_idx, :], label='MCT')
-    plt.plot(times_for_plotting, pred[plt_idx, :], label='NN pred')
+    plt.plot(times_for_plotting, y[plt_idx, :], label='Ground truth')
+    plt.plot(times_for_plotting, pred[plt_idx, :], label='NN pred', 
+             linestyle='dashed')
     plt.legend()
     plt.xscale('log')
     plt.title('An example from the test set')

@@ -1,18 +1,16 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Fri Sep 10 15:56:02 2021
+Created on Fri Jan 20 15:56:02 2023
 
-@author: mwinter
+@author: Max Kerr Winter
+
+A class defining a feed forward neural network with dropout layers.
 """
 
 import torch
 from torch import nn
-from torch.utils.data import DataLoader
-from torchvision import datasets
-from torchvision.transforms import ToTensor, Lambda, Compose
 
-# Define model class
 class NeuralNetwork(nn.Module):
     def __init__(self, n_in=28*28, n_out=10, h_layer_widths=[512], bias=True,
                  prob=0.5):
@@ -36,8 +34,6 @@ class NeuralNetwork(nn.Module):
         self.net = nn.Sequential(*layers)
 
 
-    # Evaluates all layers in self.net, using the output of one layer as the
-    # input of the next.
     def forward(self, x):
         x = self.flatten(x)
         logits = self.net(x)
@@ -55,7 +51,7 @@ if __name__=='__main__':
     h_layer_widths=[30, 40, 50, 60, 70, 80]
     
     model = NeuralNetwork(n_in=N_inputs, n_out=N_outputs,
-                              h_layer_widths=h_layer_widths).to(device)
+                          h_layer_widths=h_layer_widths).to(device)
     
     print(model)
 
