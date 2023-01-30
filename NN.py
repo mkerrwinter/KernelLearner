@@ -35,6 +35,21 @@ class NeuralNetwork(nn.Module):
 
 
     def forward(self, x):
+        """
+        The forward pass of a signal through the network. The output of each
+        layer is passed as input to the next layer.
+        
+        Inputs
+        ------
+        x : Tensor
+            The input signal to the first layer in the network.
+            
+        Outputs
+        -------
+        logits : Tensor
+                 The output of the final layer of the network.
+        """
+        
         x = self.flatten(x)
         logits = self.net(x)
         return logits

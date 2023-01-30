@@ -4,13 +4,15 @@
 Created on Fri Jan 20 15:36:31 2023
 
 @author: Max Kerr Winter
+
+A script to make parameter files that define the architecture and 
+hyperparameters of neural networks. The boolean variable hyperparam_search
+determines whether multiple parameter files are produced across a range of 
+hyperparameters, or whether a single parameter file is produced for testing
+purposes.
 """
 
-# A script to make parameter files that define the architecture and 
-# hyperparameters of neural networks. The boolean variable hyperparam_search
-# determines whether multiple parameter files are produced across a range of 
-# hyperparameters, or whether a single parameter file is produced for testing
-# purposes.
+
 
 import os
 import json
@@ -18,6 +20,11 @@ import numpy as np
 
 base_path = './'
 hyperparam_search = False
+
+model_dir = '{}models/'.format(base_path)
+dir_exists = os.path.isdir(model_dir)
+if not dir_exists:
+    os.mkdir(model_dir)
 
 if hyperparam_search:    
     # L2 regularisation term \lambda

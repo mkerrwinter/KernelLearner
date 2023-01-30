@@ -4,9 +4,9 @@
 Created on Fri Jan 20 14:30:02 2023
 
 @author: Max Kerr Winter
-"""
 
-# A script to train a neural network from a parameter file.
+A script to train a neural network from a parameter file.
+"""
 
 import torch
 from torch import nn
@@ -29,6 +29,26 @@ if not torch.cuda.is_available():
 
 # Define training process
 def train(dataloader, model, loss_fn, optimizer, device):
+    """
+    Perform one step of the network training routine.
+    
+    Inputs
+    ------
+    dataloader : DataLoader
+                 A dataset organised into batches.
+                  
+    model      : NeuralNetwork
+                 A neural network.
+                 
+    loss_fn    : function
+                 The loss function to be minimised.
+                 
+    optimizer  : Optimizer
+                 An object that performs a gradient descent algorithm.
+                 
+    device     : str
+                 Determines whether pytorch tensors are saved to cpu or gpu.
+    """
 
     model.train()
 
@@ -45,25 +65,6 @@ def train(dataloader, model, loss_fn, optimizer, device):
             
         loss.backward() 
         optimizer.step() 
-        
-
-# Calculate value of loss function
-def evaluate_loss(dataloader, model, loss_fn, device):
-    num_batches = len(dataloader)
-    model.eval()
-    loss = 0
-    with torch.no_grad(): 
-        for X, y in dataloader:
-            X, y = X.to(device), y.to(device)
-            pred = model(X)
-            loss += loss_fn(pred, y).item()
-
-    if num_batches>0:
-        loss /= num_batches
-    else:
-        loss = np.inf
-        
-    return loss
 
 
 if __name__ == "__main__":
@@ -163,7 +164,12 @@ if __name__ == "__main__":
         raise ValueError('Must provide a parameter file or existing model.')
         
     # Check data_output_dir exists
-    data_output_dir = '{}measured_data/{}/'.format(base_path, model_name)
+    data_dir = '{}measured_data/'.format(base_path)
+    dir_exists = os.path.isdir(data_dir)
+    if not dir_exists:
+        os.mkdir(data_dir)
+        
+    data_output_dir = '{}{}/'.format(data_dir, model_name)
     dir_exists = os.path.isdir(data_output_dir)
     if not dir_exists:
         os.mkdir(data_output_dir)        
@@ -207,9 +213,9 @@ if __name__ == "__main__":
         if (time_check)%save_freq==0:
             print(f"Epoch {t+1}\n-------------------------------")
             torch.save(model.state_dict(), 
-                       '{}{}_model_epoch_{}.pth'.format(model_output_dir, 
+                       '{}{}_epoch_{}.pth'.format(model_output_dir, 
                                                                model_name, t))
-            l = evaluate_loss(train_dataloader, model, loss_fn, device)
+            l = aux.evaluate_loss(train_dataloader, model, loss_fn, device)
             train_loss.append(l)
             
             train_loss_outpath = data_output_dir + 'train_loss.txt'
@@ -221,7 +227,7 @@ if __name__ == "__main__":
                 with open(train_loss_outpath, 'w') as f:
                         f.write(out_string)
         
-            test_loss.append(evaluate_loss(test_dataloader, model, loss_fn, 
+            test_loss.append(aux.evaluate_loss(test_dataloader, model, loss_fn, 
                                             device))
             test_loss_outpath = data_output_dir + 'test_loss.txt'
             out_string = '{} {}\n'.format(t, test_loss[-1])
@@ -247,7 +253,12 @@ if __name__ == "__main__":
     timestep_array = epoch_array*N_steps
     
     # Plot losses
-    plot_output_dir = '{}plots/{}/'.format(base_path, model_name)
+    plot_dir = '{}plots/'.format(base_path)
+    dir_exists = os.path.isdir(plot_dir)
+    if not dir_exists:
+        os.mkdir(plot_dir)
+        
+    plot_output_dir = '{}{}/'.format(plot_dir, model_name)
     dir_exists = os.path.isdir(plot_output_dir)
     if not dir_exists:
         os.mkdir(plot_output_dir)

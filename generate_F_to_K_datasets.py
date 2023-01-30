@@ -4,12 +4,12 @@
 Created on Fri Jan 20 10:33:34 2023
 
 @author: Max Kerr Winter
-"""
 
-# A script to generate a training and testing dataset for extracting kernels, 
-# K, from solutions to the GLE, F. The script takes clean solutions to the GLE,
-# adds multiple realisations of noise, and constructs a training and testing 
-# set out of the resulint noisy curves in a pytorch friendly format.
+A script to generate a training and testing dataset for extracting kernels, 
+K, from solutions to the GLE, F. The script takes clean solutions to the GLE,
+adds multiple realisations of noise, and constructs a training and testing 
+set out of the resulint noisy curves in a pytorch friendly format.
+"""
 
 import os
 import numpy as np
@@ -32,18 +32,30 @@ def perform_PCA(data, order, outpath, debug):
     """
     A function to calculate the PCA components of a dataset.
     
-    Inputs:
-        data    - A dataframe containing the data. For N datapoints each of 
-                  dimension M, data has shape (N, M).
-        order   - The number of PCA components to be retained.
-        outpath - The path where the explained variance plot is saved.
-        debug   - If True, no plots are saved.
+    Inputs
+    ------
+    data    : DataFrame
+              A dataframe containing the data. For N datapoints each of 
+              dimension M, data has shape (N, M).
+              
+    order   : int
+              The number of PCA components to be retained.
+              
+    outpath : str
+              The path where the explained variance plot is saved.
+              
+    debug   : bool
+              If True, no plots are saved.
     
-    Outputs:
-        pca_data_reduced - The data expressed in the PCA basis up to the 
-                           specified order.
-        pca              - The PCA object that is capable of transforming data 
-                           onto the PCA basis of the input data.
+    Outputs
+    -------
+    pca_data_reduced : numpy array
+                       The data expressed in the PCA basis up to the 
+                       specified order.
+                       
+    pca              : decomposition.PCA
+                       The PCA object that is capable of transforming data 
+                       onto the PCA basis of the input data.
     """
 
     pca = decomposition.PCA()

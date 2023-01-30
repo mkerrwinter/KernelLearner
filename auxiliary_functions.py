@@ -13,33 +13,81 @@ import os
 import torch
 from torch.utils.data import DataLoader
 import numpy as np
-from scipy.integrate import quad, trapezoid
+from scipy.integrate import quad
 from scipy.interpolate import interp1d
 from matplotlib import pyplot as plt
 import glob
-from collections import defaultdict
-import matplotlib
 
 from NN import NeuralNetwork
 
-matplotlib.rcParams.update({'font.size': 24})
-
-# Load the parameters for the model
 def load_model_params(filepath):
+    """
+    Load the hyperparameter json for a model.
+    
+    Inputs
+    ------
+    filepath : str
+               The path of the hyperparameter json file.
+               
+    Outputs
+    -------
+    params : dict
+             A dictionary containing the model hyperparameters.
+    """
+    
     with open(filepath) as infile:
         params = json.load(infile)
 
     return params
 
 
-# Save json of model params
+
 def save_model_params(params, outpath):
+    """
+    Save a json of model hyperparameters.
+    
+    Inputs
+    ------
+    params  : dict
+              A dictionary of model hyperparameters.
+    
+    outpath : str
+              The path where the json is to be saved.
+    """
+    
     with open(outpath, 'w') as outfile:
         json.dump(params, outfile)
         
 
-# Load existing models
 def load_models(input_dir, model_name, params, device):
+    """
+    Load existing models from a directory.
+    
+    Inputs
+    ------
+    input_dir  : str
+                 The path of the directory where the models are saved.
+                
+    model_name : str
+                 The name of the model. Models are saved with the path 
+                 convention {inputdir}{model_name}_epoch_{N}.pth where N is
+                 the epoch number.
+    
+    params     : dict
+                 A dictionary of the model hyperparameters.
+                 
+    device     : str
+                 Determines whether pytorch tensors are saved to cpu or gpu.
+                 
+    Outputs
+    -------
+    models : list
+             The loaded models.
+    
+    epochs : list
+             The epoch of each loaded model.
+    """
+    
     files = os.listdir(input_dir)
     
     # order files
@@ -51,7 +99,7 @@ def load_models(input_dir, model_name, params, device):
         except ValueError:
             continue
         
-        if start != '{}_model'.format(model_name):
+        if start != model_name:
             continue
         
         epoch = int(end[:-4])
@@ -71,8 +119,7 @@ def load_models(input_dir, model_name, params, device):
     
     models = []
     for epoch in epochs:
-        filename = '{}{}_model_epoch_{}.pth'.format(input_dir, model_name, 
-                                                     epoch)
+        filename = '{}{}_epoch_{}.pth'.format(input_dir, model_name, epoch)
         model = NeuralNetwork(n_in=N_inputs, n_out=N_outputs, 
                               h_layer_widths=h_layer_widths, 
                               prob=dropout_p).to(device)
@@ -81,11 +128,12 @@ def load_models(input_dir, model_name, params, device):
         
         # Check device
         if epoch == epochs[0]:
-            print('Current device = ', device)
             for l in range(len(model.net)):
                 try:
                     l_weight = model.net[l].weight
-                    print('Layer {} device '.format(l), l_weight.device)
+                    if str(l_weight.device) != device:
+                        raise AssertionError('Error: Model saved with' + 
+                                             ' different device.')
                 except AttributeError:
                     continue
         
@@ -94,18 +142,55 @@ def load_models(input_dir, model_name, params, device):
     return models, epochs
 
 
-# Load a dataset
 def load_dataset(dataset, batch_size, base_path, model_name=None):
-    if dataset[:6]=='F_to_M':
+    """
+    Load a dataset.
+    
+    Inputs
+    ------
+    dataset    : str
+                 The name of the dataset.
+              
+    batch_size : int
+                 The number of examples in each batch.
+                 
+    base_path  : str
+                 The root directory that this code runs in.
+                 
+    model_name : str
+                 The name of a model, if required.
+                 
+    Outputs
+    -------
+    train_dataloader : DataLoader
+                       The training set, organised into batches.
+                       
+    test_dataloader  : DataLoader
+                       The test set, organised into batches.
+                       
+    training_data    : Tensor
+                       The training data in a pytorch tensor.
+                       
+    test_data        : Tensor
+                       The test data in a pytorch tensor.
+                       
+    N_inputs         : int
+                       The dimension of the input data.
+                       
+    N_outputs        : int
+                       The dimension of the output data.
+    """
+    
+    if dataset[:6]=='F_to_K':
         noise_str = dataset[7:]
         
-        data_output_dir = '{}data/F_to_M_data/noise_{}/'.format(base_path, 
+        data_output_dir = '{}data/F_to_K_data/noise_{}/'.format(base_path, 
                                                                 noise_str)
         
-        fname = data_output_dir + 'MCT_train.pt'
+        fname = data_output_dir + 'GLE_train.pt'
         training_data = torch.load(fname)
         
-        fname = data_output_dir + 'MCT_test.pt'
+        fname = data_output_dir + 'GLE_test.pt'
         test_data = torch.load(fname)
         
     else:
@@ -114,7 +199,7 @@ def load_dataset(dataset, batch_size, base_path, model_name=None):
     N_inputs = training_data[0][0].shape[1]
     N_outputs = training_data[0][1].shape[0]
     
-    # Deal with batch size = dataset size case
+    # Deal with batch size = training dataset size case
     set_b_for_test = False
     if batch_size==-1:
         batch_size = len(training_data)
@@ -125,7 +210,7 @@ def load_dataset(dataset, batch_size, base_path, model_name=None):
     train_dataloader = DataLoader(training_data, batch_size=batch_size, 
                                   shuffle=True, drop_last=True)
     
-    # Deal with batch size = dataset size case
+    # Deal with batch size = training dataset size case
     if set_b_for_test:
         batch_size = len(test_data)
         
@@ -136,29 +221,36 @@ def load_dataset(dataset, batch_size, base_path, model_name=None):
             N_inputs, N_outputs)
 
 
-def split_path(ic_path):    
-    chunks = ic_path.split('/')
-    ic_path += '/'
-
-    return ic_path, chunks[-1]
-
-
-def check_for_NaN_network(model):
-    NaN_network = False
-    
-    for param in model.parameters():
-        param_array = param.detach().numpy()
-        bool_array = np.isnan(param_array)
-        bool_sum = bool_array.sum()
-        
-        if bool_sum>0:
-            NaN_network = True
-            break
-    
-    return NaN_network
-
-
 def load_final_model(input_dir, model_name, params, device):
+    """
+    Load the final model from a directory containing many models at different
+    epochs.
+    
+    Inputs
+    ------
+    input_dir  : str
+                 The path of the directory where the models are saved.
+                
+    model_name : str
+                 The name of the model. Models are saved with the path 
+                 convention {inputdir}{model_name}_epoch_{N}.pth where N is
+                 the epoch number.
+    
+    params     : dict
+                 A dictionary of the model hyperparameters.
+                 
+    device     : str
+                 Determines whether pytorch tensors are saved to cpu or gpu.
+    
+    Outputs
+    -------
+    model : NeuralNetwork
+            The loaded models from the final epoch.
+    
+    epoch : int
+            The final epoch.
+    """
+    
     files = os.listdir(input_dir)
     
     # order files
@@ -240,6 +332,21 @@ def load_final_model(input_dir, model_name, params, device):
 
 
 def make_weighted_MSELoss():
+    """
+    Make a weighted mean square error loss function. For model output f, and 
+    ground truth K, the weighted mean square error loss function is
+    
+    L = \frac{1}{P}\sum_{i=1}^P\frac{1}{T}\sum_{j=1}^T\theta_j(f(t_j)-K(t_j))^2
+    
+    where P is the size of the dataset, and T is the time period over which 
+    kernels are defined. The weights \theta_j increase linearly over this time
+    period.
+    
+    Outputs
+    -------
+    loss : func
+           The loss function.
+    """
 
     def loss(output, target):
         N_cols = output.shape[1]
@@ -249,126 +356,68 @@ def make_weighted_MSELoss():
     return loss
 
 
-def trapezium_rule_for_batches(y, x):
-    deltas = x[1:]-x[:-1]
-    average_y = (y[:, 1:]+y[:, :-1])/2.0
-    areas = deltas*average_y
-    return areas.sum(axis=1)
-
-
-def make_MaxEntLoss(alpha, times):
-
-    def loss(output, target):
-        entropy = -torch.abs(output)*torch.log(torch.abs(output))
-        integral = trapezium_rule_for_batches(entropy, times)
-        L_output, s_vals = Laplace_transform_for_backprop(times, output)
-        L_target, s_vals = Laplace_transform_for_backprop(times, target)
-        loss_integrand = 0.5*(L_output-L_target)**2
-        loss_MSE = trapezium_rule_for_batches(loss_integrand, s_vals)
-        l_by_batch = loss_MSE - alpha*integral
-        return torch.mean(l_by_batch)
-        
-    return loss
-
-
-def fit_expo(t, y):
-    log_y = np.log(y)
-    coeffs = np.polyfit(t, log_y, 1)
-    B = coeffs[0]
-    c = coeffs[1]
-    A = np.exp(c)
-
-    return A, B
-
-
-def forward_Laplace(f, p, tmin=0.0, tmax=np.inf):
-    # Calculate Laplace transform for function f
-    real_integral = quad(lambda t: (f(t)*np.exp(-t*p)).real, tmin, tmax, limit=200)[0]
-    im_integral = quad(lambda t: (f(t)*np.exp(-t*p)).imag, tmin, tmax, limit=200)[0]
-    
-    integral = real_integral + 1j*im_integral
-    
-    return integral
-
-
-def trapezium_rule(y, x):
-    deltas = x[1:]-x[:-1]
-    average_y = (y[1:]+y[:-1])/2.0
-    areas = deltas*average_y
-    return areas.sum()
-
-
-def forward_Laplace_trapz_method(F, times, s):
-    integral = trapezium_rule(F*np.exp(-times*s), times)
-    
-    return integral
-
-
-def numerical_Laplace_transform(t, f, p, trapz_method=False):
-    func = interp1d(t, f, kind='cubic')
-
-    print('Transforming...')
-    
-    t_max = max(t)
-    t_min = min(t)
-
-    transform = []
-    
-    for idx in range(len(p)):
-        p_val = p[idx]
-        
-        if trapz_method:
-            val = forward_Laplace_trapz_method(f, t, p_val)    
-        else:
-            val = forward_Laplace(func, p_val, tmin=t_min, tmax=t_max)
-
-        transform.append(val)
-    
-    return np.array(transform)
-
-
-def Laplace_transform_for_backprop(t, f):
-    s_vals = torch.arange(1, 11, 0.1)
-    transform = torch.zeros(f.shape[0], s_vals.shape[0])
-    
-    for s_idx, s in enumerate(s_vals):
-        val = forward_Laplace_trapz_method(f, t, s)    
-        transform[:, s_idx] = val
-        
-    return transform, s_vals
-    
-
-
-def make_quadratic_hinge_loss():
-    
-    def quadratic_hinge(output, target):
-        Delta = 1.0-target*output
-        zeros = torch.zeros_like(Delta)
-        
-        max_Delta = torch.max(zeros, Delta)
-        
-        sq_max_Delta = max_Delta*max_Delta
-        
-        return 0.5*torch.mean(sq_max_Delta)
-    
-    return quadratic_hinge
-
-
 def evaluate_loss(dataloader, model, loss_fn, device):
+    """
+    Calculate the value of the loss function with the current state of the 
+    neural network.
+    
+    Inputs
+    ------
+    dataloader : DataLoader
+                 A dataset organised into batches.
+                  
+    model      : NeuralNetwork
+                 A neural network.
+                 
+    loss_fn    : function
+                 The loss function to be minimised.
+
+    device     : str
+                 Determines whether pytorch tensors are saved to cpu or gpu.
+    """
+    
     num_batches = len(dataloader)
     model.eval()
     loss = 0
-    with torch.no_grad(): # Turns off gradient calculations. This saves time.
+    with torch.no_grad(): 
         for X, y in dataloader:
             X, y = X.to(device), y.to(device)
             pred = model(X)
             loss += loss_fn(pred, y).item()
-    
-    loss /= num_batches
+
+    if num_batches>0:
+        loss /= num_batches
+    else:
+        loss = np.inf
+        
     return loss
 
 
 def plot_losses(models, epochs, model_name, params, device, base_path):
+    """
+    A function to plot the loss curve for a sequence of models.
+    
+    Inputs
+    ------
+    models     : list
+                 A list of models at increasing epochs.
+             
+    epochs     : list
+                 A list of epochs corresponding to the models.
+             
+    model_name : str
+                 The name of the models.
+                 
+    params     : dict
+                 A dictionary of model hyperparameters.
+                 
+    device     : str
+                 Determines whether pytorch tensors are saved to cpu or gpu.
+                 
+    base_path  : str
+                 The root directory that this code runs in.
+    """
+    
     batch_size = params['batch_size']
     dataset = params['dataset']
     
@@ -389,9 +438,6 @@ def plot_losses(models, epochs, model_name, params, device, base_path):
     elif loss_function == 'Hinge':
         loss_fn = torch.nn.HingeEmbeddingLoss()
         
-    elif loss_function == 'quadratic_hinge':
-        loss_fn = make_quadratic_hinge_loss()
-        
     else:
         print('PROVIDE A LOSS FUNCTION')
     
@@ -401,7 +447,7 @@ def plot_losses(models, epochs, model_name, params, device, base_path):
     
     if len(models)>900:
         rate = 60
-        print('Subsampling models to speed up training loss plotting')
+        print('Subsampling models to speed up loss plotting')
     else:
         rate = 1
     
@@ -409,7 +455,7 @@ def plot_losses(models, epochs, model_name, params, device, base_path):
         epoch = epochs[count]
         model = models[count]
         
-        print('Calculating training loss at epoch {}'.format(epoch))
+        print('Calculating loss at epoch {}'.format(epoch))
 
         train_l = evaluate_loss(train_dataloader, model, loss_fn, device)
         test_l = evaluate_loss(test_dataloader, model, loss_fn, device)
@@ -424,7 +470,12 @@ def plot_losses(models, epochs, model_name, params, device, base_path):
     timestep_array = sub_epoch_array*N_steps
         
     # Plot result
-    plot_output_dir = '{}plots/{}/'.format(base_path, model_name)
+    plot_dir = '{}plots/'.format(base_path)
+    dir_exists = os.path.isdir(plot_dir)
+    if not dir_exists:
+        os.mkdir(plot_dir)
+        
+    plot_output_dir = '{}{}/'.format(plot_dir, model_name)
     dir_exists = os.path.isdir(plot_output_dir)
     if not dir_exists:
         os.mkdir(plot_output_dir)
@@ -459,6 +510,24 @@ def plot_losses(models, epochs, model_name, params, device, base_path):
     
     
 def find_best_model(model_name_stub, base_path, device):
+    """
+    Find the best model out of a set of models that all share a model_name.
+    In this context, 'best' means the network that achieves the lowest test 
+    loss. The results, including a ranked list of the models, is saved to a 
+    text file and printed to screen.
+    
+    Inputs
+    ------
+    model_name_stub : str
+                      The model_name used to save the models.
+                      
+    base_path       : str
+                      The root directory that this code runs in.
+                      
+    device          : str
+                      Determines whether pytorch tensors are saved to cpu or 
+                      gpu.
+    """
     # Get all models with model_name as their stub
     path_stub = '{}models/{}*'.format(base_path, model_name_stub)
     dirs = glob.glob(path_stub)
@@ -512,10 +581,7 @@ def find_best_model(model_name_stub, base_path, device):
                 
             elif loss_function == 'Hinge':
                 loss_fn = torch.nn.HingeEmbeddingLoss()
-                
-            elif loss_function == 'quadratic_hinge':
-                loss_fn = make_quadratic_hinge_loss()
-                
+   
             else:
                 print('PROVIDE A LOSS FUNCTION')
             
@@ -583,9 +649,12 @@ def find_best_model(model_name_stub, base_path, device):
                                                    ordered_losses[k]))
     
     # Save best models to file
-    outpath = '{}measured_data/ranked_models_{}.txt'.format(base_path, 
-                                                           model_name_stub)
-    print('outpath = ', outpath)
+    output_dir = '{}measured_data/'.format(base_path)
+    dir_exists = os.path.isdir(output_dir)
+    if not dir_exists:
+        os.mkdir(output_dir)
+        
+    outpath = '{}ranked_models_{}.txt'.format(output_dir, model_name_stub)
     
     with open(outpath, 'w') as f:
         f.write('Best model is:\n')
@@ -600,162 +669,54 @@ def find_best_model(model_name_stub, base_path, device):
                                                          ordered_losses[k]))
 
 
-def plot_loss_vs_L2(model_name_stub, base_path, device):
-    # Get all models with model_name as their stub
-    path_stub = '{}models/{}_ic*_reg*_b2500_w8*'.format(base_path, 
-                                                       model_name_stub)
-    dirs = glob.glob(path_stub)
+def check_for_NaN_network(model):
+    """
+    A quick check to see if a network contains a NaN parameter.
     
-    losses = []
-    L2s = []
+    Inputs
+    ------
+    model : NeuralNetwork
+            A neural network.
+            
+    Outputs
+    -------
+    NaN_network : bool
+                  True if the network contains a NaN parameter, False 
+                  otherwise.
+    """
+    NaN_network = False
     
-    print('path_stub = ', path_stub)
+    for param in model.parameters():
+        param_array = param.detach().numpy()
+        bool_array = np.isnan(param_array)
+        bool_sum = bool_array.sum()
+        
+        if bool_sum>0:
+            NaN_network = True
+            break
     
-    for my_dir in dirs:
-        print('my_dir = ', my_dir)
-        dir_split = my_dir.split('/')
-        model_name = dir_split[-1]
-        
-        print('Model name: ', model_name)
-        
-        # Extract L2
-        L2_name_parts = model_name.split('reg')
-        L2_part = L2_name_parts[-1].split('b')
-        L2_str = L2_part[0][:-1]
-        L2_str = L2_str.replace('_', '.')
-        L2 = float(L2_str)
-        
-        print('L2 = ', L2)
-        
-        # See if loss data already exists
-        saved_data_dir = '{}measured_data/{}/'.format(base_path, model_name)
-        saved_data_path = '{}test_loss.txt'.format(saved_data_dir)
-        data_exists = os.path.isfile(saved_data_path)
-        
-        if data_exists:
-            data = np.loadtxt(saved_data_path)
-            subsampled_epochs = data[:, 0]
-            test_loss = data[:, 1]
-            print('Loaded losses from text file.')
-        
-        else:
-            print('Calculating losses')
-            
-            input_dir = '{}models/{}/'.format(base_path, model_name)
-            param_path = '{}/{}_model_params.json'.format(input_dir, model_name)
-            params = load_model_params(param_path)
-            models, epochs = load_models(input_dir, model_name, params, device)
-            
-            # Load dataset
-            batch_size = params['batch_size']
-            dataset = params['dataset']
-            
-            (train_dataloader, test_dataloader, training_data, test_data, 
-                N_inputs, N_outputs) = load_dataset(dataset, batch_size, base_path)
-                
-            # Define loss function 
-            loss_function = params['loss_function']
-            if loss_function == 'CrossEntropy':
-                loss_fn = torch.nn.CrossEntropyLoss()
-                
-            elif loss_function == 'MSELoss':
-                loss_fn = torch.nn.MSELoss()
-            
-            elif loss_function == 'weighted_MSELoss':
-                loss_fn = make_weighted_MSELoss()
-                
-            elif loss_function == 'Hinge':
-                loss_fn = torch.nn.HingeEmbeddingLoss()
-                
-            elif loss_function == 'quadratic_hinge':
-                loss_fn = make_quadratic_hinge_loss()
-                
-            else:
-                print('PROVIDE A LOSS FUNCTION')
-            
-            # Evaluate test losses
-            test_loss = []
-            subsampled_epochs = []
-            
-            if len(models)>900:
-                rate = 60
-                print('Subsampling models to speed up training loss plotting')
-            else:
-                rate = 1
-            
-            for count in range(0, len(epochs), rate):
-                epoch = epochs[count]
-                model = models[count]
-                    
-                test_l = evaluate_loss(test_dataloader, model, loss_fn, device)
-                
-                test_loss.append(test_l)
-                subsampled_epochs.append(epoch)
-            
-            # Save for re-use
-            data_for_saving = np.zeros((len(test_loss), 2))
-            data_for_saving[:, 0] = subsampled_epochs
-            data_for_saving[:, 1] = test_loss
-            
-            dir_exists = os.path.isdir(saved_data_dir)
-            if not dir_exists:
-                os.mkdir(saved_data_dir)
-            
-            if len(test_loss)>0:
-                np.savetxt(saved_data_path, data_for_saving, delimiter=' ') 
-            
-        # Find best loss
-        if len(test_loss)>0:
-            min_idx = np.argmin(test_loss)
-            best_loss = test_loss[min_idx]
-            
-            losses.append(best_loss)
-            L2s.append(L2)
-        else:
-            losses.append(np.nan)
-            L2s.append(np.nan)
-    
-    print('losses = ', losses)
-    print('L2s = ', L2s)
-    
-    # Plot best losses
-    plot_output_dir = '{}plots/'.format(base_path)
-    dir_exists = os.path.isdir(plot_output_dir)
-    if not dir_exists:
-        os.mkdir(plot_output_dir)
-        
-    L2s = np.array(L2s)
-    L2s_for_plotting = L2s.copy()
-    idx0 = np.where(L2s==0)[0]
-    idx1 = np.where(L2s==0.001)[0]
-    idx2 = np.where(L2s==0.01)[0]
-    idx3 = np.where(L2s==0.05)[0]
-    idx4 = np.where(L2s==0.1)[0]
-    
-    L2s_for_plotting[idx0] = 0
-    L2s_for_plotting[idx1] = 1
-    L2s_for_plotting[idx2] = 2
-    L2s_for_plotting[idx3] = 3
-    L2s_for_plotting[idx4] = 4
-    xticks = [0, 1, 2, 3, 4]
-    xlabels = ['0', '0.001', '0.01', '0.05', '0.1']
-    yticks = [20, 100, 300]
-    ylabels = ['20', '100', '300']
-        
-    fig, ax = plt.subplots()
-    plt.scatter(L2s_for_plotting, losses)
-    plt.yscale('log')
-    ax.set_xticks(xticks)
-    ax.set_xticklabels(xlabels)
-    ax.set_yticks(yticks)
-    ax.set_yticklabels(ylabels)
-    plt.ylabel(r'$L_{Test}$')
-    plt.xlabel(r'$\lambda$')
-    plt.savefig('{}test_loss_vs_L2.pdf'.format(plot_output_dir), 
-                bbox_inches='tight')
+    return NaN_network
 
 
 def find_nan_weight(model):
+    """
+    Find a NaN weight in a model.
+    
+    Inputs
+    ------
+    model : NeuralNetwork
+            A neural network.
+            
+    Outputs
+    -------
+    nan_layers : list
+                 A list of layers containing NaN weights.
+    
+    nan_indices : list
+                  A list containing the indices of the NaN weights
+                  with the corresponding layers in nan_layers.
+    """
+    
     nan_layers = []
     nan_indices = []
     
@@ -774,7 +735,23 @@ def find_nan_weight(model):
     return nan_layers, nan_indices
 
 
-def is_model_nan(models, epochs, model_name):
+def print_nan_weights(models, epochs, model_name):
+    """
+    Check if a network contains an infinite or undefined weight, and if so,
+    print where it is.
+    
+    Inputs
+    ------
+    models     : list
+                 A list of models to check.
+    
+    epochs     : list
+                 A list of epochs corresponding to the models.
+    
+    model_name : str
+                 The name of the models.
+    """
+    
     print('Starting NaN test')
     
     for idx in range(len(models)):
@@ -784,7 +761,6 @@ def is_model_nan(models, epochs, model_name):
         nan_test = 0.0
         for param in model.parameters():
             np_param = param.detach().numpy()
-            import pdb; pdb.set_trace()
             nan_test += np_param.sum()
         
         if np.isnan(nan_test):

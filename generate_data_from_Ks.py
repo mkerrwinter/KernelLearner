@@ -4,11 +4,15 @@
 Created on Fri Jan 20 08:19:31 2023
 
 @author: Max Kerr Winter
+
+A script to generate training data by solving the overdamped GLE for a set
+of user provided memory kernels. The overdamped GLE in some function f is
+f' + \Omega^2 f + \int_0^\infty dt'[K(t')f'(t-t')] = 0.
+                                            
+The GLE solver was written by I. Pihlajamaa.
 """
 
-# A script to generate training data by solving the overdamped GLE for a set
-# of user provided memory kernels. The overdamped GLE in some function f is
-# f' + \Omega^2 f + \int_0^\infty dt'[K(t')f'(t-t')] = 0
+
 
 import numpy as np
 import time
