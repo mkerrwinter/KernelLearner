@@ -32,9 +32,9 @@ else:
     device = "cpu"
     print('Using CPU.')
 
-# Load trained model
-model_name = 'F_to_K_test_model'
-best_epoch = 499
+# Load best trained model
+name_stub = 'F_to_K_test_model'
+model_name, best_epoch = aux.find_best_model(name_stub, base_path, device)
 
 model_path = base_path + 'models/{}/'.format(model_name)
 params = aux.load_model_params('{}{}_params.json'.format(model_path, 

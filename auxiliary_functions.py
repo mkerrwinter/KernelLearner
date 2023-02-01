@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Mon Nov 14 11:28:25 2022
+Created on Fri Jan 20 11:28:25 2023
 
-@author: mwinter
+@author: Max Kerr Winter
+
+Auxiliary functions that are used in other scripts.
 """
-
-# Auxiliary functions
 
 import json
 import os
@@ -540,7 +540,8 @@ def find_best_model(model_name_stub, base_path, device):
         dir_split = my_dir.split('/')
         model_name = dir_split[-1]
         
-        print('Model name: ', model_name)
+        if __name__=='__main__':
+            print('Model name: ', model_name)
         
         # See if loss data already exists
         saved_data_dir = '{}measured_data/{}/'.format(base_path, model_name)
@@ -551,10 +552,12 @@ def find_best_model(model_name_stub, base_path, device):
             data = np.loadtxt(saved_data_path)
             subsampled_epochs = data[:, 0]
             test_loss = data[:, 1]
-            print('Loaded losses from text file.')
+            if __name__=='__main__':
+                print('Loaded losses from text file.')
         
         else:
-            print('Calculating losses')
+            if __name__=='__main__':
+                print('Calculating losses')
             
             input_dir = '{}models/{}/'.format(base_path, model_name)
             param_path = '{}/{}_model_params.json'.format(input_dir, model_name)
@@ -637,36 +640,42 @@ def find_best_model(model_name_stub, base_path, device):
     ordered_epochs = np.array(best_epochs)[ordered_indices]
     ordered_names = np.array(model_names)[ordered_indices]
     
-    print('\n Best model is:')
-    print('{} at epoch {} with test loss {}\n'.format(ordered_names[0], 
-                                                      ordered_epochs[0], 
-                                                      ordered_losses[0]))
-    
-    print('\n Models ordered by test loss are:')
-    for k in range(len(ordered_losses)):
-        print('{} at epoch {} with loss {}'.format(ordered_names[k], 
-                                                   ordered_epochs[k], 
-                                                   ordered_losses[k]))
-    
-    # Save best models to file
-    output_dir = '{}measured_data/'.format(base_path)
-    dir_exists = os.path.isdir(output_dir)
-    if not dir_exists:
-        os.mkdir(output_dir)
+    if __name__=='__main__':
+        print('\n Best model is:')
+        print('{} at epoch {} with test loss {}\n'.format(ordered_names[0], 
+                                                          ordered_epochs[0], 
+                                                          ordered_losses[0]))
         
-    outpath = '{}ranked_models_{}.txt'.format(output_dir, model_name_stub)
-    
-    with open(outpath, 'w') as f:
-        f.write('Best model is:\n')
-        f.write('{} at epoch {} with test loss {}\n'.format(ordered_names[0], 
+        print('\n Models ordered by test loss are:')
+        for k in range(len(ordered_losses)):
+            print('{} at epoch {} with loss {}'.format(ordered_names[k], 
+                                                       ordered_epochs[k], 
+                                                       ordered_losses[k]))
+        
+        # Save best models to file
+        output_dir = '{}measured_data/'.format(base_path)
+        dir_exists = os.path.isdir(output_dir)
+        if not dir_exists:
+            os.mkdir(output_dir)
+            
+        outpath = '{}ranked_models_{}.txt'.format(output_dir, model_name_stub)
+        
+        with open(outpath, 'w') as f:
+            f.write('Best model is:\n')
+            f.write('{} at epoch {}, test loss {}\n'.format(ordered_names[0], 
                                                             ordered_epochs[0], 
                                                             ordered_losses[0]))
-        
-        f.write('\n Models ordered by test loss are: \n')
-        for k in range(len(ordered_losses)):
-            f.write('{} at epoch {} with loss {}\n'.format(ordered_names[k], 
-                                                         ordered_epochs[k], 
-                                                         ordered_losses[k]))
+            
+            f.write('\n Models ordered by test loss are: \n')
+            for k in range(len(ordered_losses)):
+                f.write('{} at epoch {}, loss {}\n'.format(ordered_names[k], 
+                                                           ordered_epochs[k], 
+                                                           ordered_losses[k]))
+    
+    best_model = ordered_names[0]
+    best_epoch = int(ordered_epochs[0])
+    
+    return best_model, best_epoch
 
 
 def check_for_NaN_network(model):
@@ -776,6 +785,20 @@ def print_nan_weights(models, epochs, model_name):
                     print('Layer {}, position ({},{})'.format(l, row, col))
     
     print('Ending NaN test')
+
+if __name__=='__main__':
+    if torch.cuda.is_available():
+        device = "cuda"
+        print('Using GPU.')
+    else:
+        device = "cpu"
+        print('Using CPU.')
+        
+    base_path = './'
+    model_name = 'F_to_K_test_model'
+    
+    # Find best model (i.e. epoch)
+    best_model, best_epoch = find_best_model(model_name, base_path, device)
     
             
         
