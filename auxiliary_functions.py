@@ -5,7 +5,7 @@ Created on Fri Jan 20 11:28:25 2023
 
 @author: Max Kerr Winter
 
-Auxiliary functions that are used in other scripts.
+Auxiliary functions for use in other scripts.
 """
 
 import json
@@ -13,8 +13,6 @@ import os
 import torch
 from torch.utils.data import DataLoader
 import numpy as np
-from scipy.integrate import quad
-from scipy.interpolate import interp1d
 from matplotlib import pyplot as plt
 import glob
 
