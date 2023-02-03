@@ -15,6 +15,8 @@ from torch.utils.data import DataLoader
 import numpy as np
 from matplotlib import pyplot as plt
 import glob
+from json import JSONEncoder
+from torch.utils.data import Dataset
 
 from NN import NeuralNetwork
 
@@ -138,6 +140,85 @@ def load_models(input_dir, model_name, params, device):
         models.append(model)
     
     return models, epochs
+
+
+def load_from_json_state_dict(param_path, json_path, device):
+    """
+    A function that loads a model from a JSON state_dict, as opposed to a 
+    serialized object.
+    
+    Inputs
+    ------
+    param_path : str
+                 The path to the network param file.
+                 
+    json_path  : str
+                 The path to the state_dict JSON file.
+                 
+    device     : str
+                 Determines whether pytorch tensors are saved to cpu or gpu.
+                
+    Outputs
+    -------
+    loaded_model : NeuralNetwork
+                   The loaded neural network.
+    """
+    
+    params = load_model_params(param_path)
+    with open(json_path, 'r') as json_file:
+        state_dict = json.load(json_file)
+    
+    loaded_state_dict = {}
+    for key in state_dict.keys():
+        temp = torch.Tensor(state_dict[key])
+        loaded_state_dict[key] = temp.clone()
+    
+    # load models
+    N_inputs = params['N_inputs']
+    N_outputs = params['N_outputs']
+    h_layer_widths = params['h_layer_widths']
+    
+    try:
+        dropout_p = params['dropout_p']
+    except KeyError:
+        dropout_p = 0.5
+        
+    loaded_model = NeuralNetwork(n_in=N_inputs, n_out=N_outputs, 
+                                  h_layer_widths=h_layer_widths, 
+                                  prob=dropout_p).to(device)
+    loaded_model.load_state_dict(loaded_state_dict)
+    
+    return loaded_model
+
+
+class EncodeTensor(JSONEncoder, Dataset):
+    """
+    A class to be used when saving pytorch arrays to JSON. Written by 
+    Andres Tello Urrea, 
+    https://stackoverflow.com/questions/72222557/saving-the-weights-of-a-pytorch-pth-model-into-a-txt-or-json
+    Accessed on 3/2/2023.
+    """
+    def default(self, obj):
+        return obj.cpu().detach().numpy().tolist()
+
+
+def save_to_json_state_dict(model, json_outpath):
+    """
+    A function to save a network state_dict to a JSON file, without any 
+    serialization. I.e. all tensors are convereted to lists. This function is 
+    the reverse of load_from_json_state_dict.
+    
+    Inputs
+    ------
+    model        : NeuralNetwork
+                   The network to be saved.
+            
+    json_outpath : The path where the JSON will be saved.
+
+    """
+    
+    with open(json_outpath, 'w') as json_file:
+        json.dump(model.state_dict(), json_file, cls=EncodeTensor)
 
 
 def load_dataset(dataset, batch_size, base_path, model_name=None):
