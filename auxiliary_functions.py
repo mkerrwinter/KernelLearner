@@ -609,15 +609,16 @@ def find_best_model(model_name_stub, base_path, device):
     """
     # Get all models with model_name as their stub
     path_stub = '{}models/{}*'.format(base_path, model_name_stub)
-    dirs = glob.glob(path_stub)
+    file_paths = glob.glob(path_stub)
     
     model_names = []
     best_losses = []
     best_epochs = []
     
-    for my_dir in dirs:
-        dir_split = my_dir.split('/')
-        model_name = dir_split[-1]
+    for file_path in file_paths:
+        file_path = os.path.abspath(file_path)
+        path_split = os.path.split(file_path)
+        model_name = path_split[-1]
         
         if __name__=='__main__':
             print('Model name: ', model_name)
@@ -879,7 +880,3 @@ if __name__=='__main__':
     # Find best model (i.e. epoch)
     best_model, best_epoch = find_best_model(model_name, base_path, device)
     
-            
-        
-        
-
