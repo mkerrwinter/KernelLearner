@@ -7,9 +7,16 @@ Created on Fri Jan 20 08:19:31 2023
 
 A script to generate training data by solving the overdamped GLE for a set
 of user provided memory kernels. The overdamped GLE in some function f is
-f' + \Omega^2 f + \int_0^\infty dt'[K(t')f'(t-t')] = 0.
+f' + \Omega f + \int_0^\infty dt'[K(t')f'(t-t')] = 0.
                                             
-The GLE solver was written by I. Pihlajamaa.
+The GLE solver can be found at https://github.com/IlianPihlajamaa/ModeCouplingTheory.jl.
+
+Before this code can be run, a working version of the programming language Julia should 
+be installed, together with the PyCall package. To do so, install Julia from the website
+https://julialang.org/downloads/ and, after having done so, run 
+"import Pkg; Pkg.add("PyCall")" in a julia session. 
+
+This code was run with ModeCouplingTheory.jl v0.6.2 and NumPy v1.20.3
 """
 
 
@@ -67,22 +74,23 @@ for number in numbers:
     a = 0.0
     b = 1.0
     c = Omega
-        
+    d = 0.0    
+    
     # Solve GLE
     print('Solving GLE with kernel K_example_{}.txt'.format(number))
     kernel = mct.InterpolatingKernel(times, K)
-    equation = mct.LinearMCTEquation(a, b, c, F0, dF0, kernel)
-    solver = mct.FuchsSolver(N=128, Δt=10**-5, t_max=10.0**5, 
+    equation = mct.MemoryEquation(a, b, c, d, F0, dF0, kernel)
+    solver = mct.TimeDoublingSolver(N=128, Δt=10**-5, t_max=10.0**5, 
                              max_iterations=10**8, tolerance=10**-6, 
                              verbose=False)
-    t, F, K = mct.solve(equation, solver)
+    sol = mct.solve(equation, solver)
     
     # Save output
     Om = np.array([Omega])
-    np.savetxt('{}F_GLE_solution_{}.txt'.format(output_dir, number), F)
-    np.savetxt('{}K_GLE_solution_{}.txt'.format(output_dir, number), K)
+    np.savetxt('{}F_GLE_solution_{}.txt'.format(output_dir, number), sol.F)
+    np.savetxt('{}K_GLE_solution_{}.txt'.format(output_dir, number), sol.K)
     np.savetxt('{}Omega_GLE_solution_{}.txt'.format(output_dir, number), Om)
-    np.savetxt('{}t_GLE_solution.txt'.format(output_dir), t)
+    np.savetxt('{}t_GLE_solution.txt'.format(output_dir), sol.t)
 
 
 
