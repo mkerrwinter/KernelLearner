@@ -17,10 +17,7 @@ import os
 start = time.time()
 
 from julia.api import Julia
-jl = Julia(compiled_modules=False)
 from julia import Main
-from julia import Pkg
-Pkg.add("ModeCouplingTheory")
 from julia import ModeCouplingTheory as mct
 
 base_path = './'
@@ -60,14 +57,15 @@ b = 1.0
 F0 = 1.0
 dF0 = 0.0
 c = Omega
+d = 0.0
 
 # Solve GLE
 kernel = mct.InterpolatingKernel(net_t, net_M)
-equation = mct.LinearMCTEquation(a, b, c, F0, dF0, kernel)
-solver = mct.FuchsSolver(N=128, Δt=10**-5, t_max=10.0**5, max_iterations=10**8, 
+equation = mct.MemoryEquation(a, b, c, d, F0, dF0, kernel)
+solver = mct.TimeDoublingSolver(N=128, Δt=10**-5, t_max=10.0**5, max_iterations=10**8, 
                          tolerance=10**-6, verbose=False)
-t, F, K = mct.solve(equation, solver)
-
+sol = mct.solve(equation, solver)
+t, F, K = sol.t, sol.F, sol.K
 # Plot results
 plot_stub = '{}plots/extracted_F/'.format(base_path)
 parent_dir_exists = os.path.isdir(plot_stub)
