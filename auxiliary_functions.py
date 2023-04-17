@@ -435,7 +435,7 @@ def make_weighted_MSELoss():
     return loss
 
 
-def evaluate_loss(dataloader, model, loss_fn, device):
+def evaluate_loss(dataloader, model, loss_fn, device, L2):
     """
     Calculate the value of the loss function with the current state of the 
     neural network.
@@ -453,6 +453,14 @@ def evaluate_loss(dataloader, model, loss_fn, device):
 
     device     : str
                  Determines whether pytorch tensors are saved to cpu or gpu.
+    
+    L2         : double
+                 The L2 regularisation parameter.
+    
+    Outputs
+    -------
+    loss       : double
+                 The value of the loss function.
     """
     
     num_batches = len(dataloader)
@@ -468,6 +476,16 @@ def evaluate_loss(dataloader, model, loss_fn, device):
         loss /= num_batches
     else:
         loss = np.inf
+    
+    # Add L2 regularisation
+    L2_loss = 0.0
+    if L2>0:
+        for param in model.parameters():
+            param_sq = param**2
+            param_sq_sum = param_sq.sum()
+            L2_loss += L2*param_sq_sum/2.0
+    
+    loss += L2_loss
         
     return loss
 
@@ -499,6 +517,7 @@ def plot_losses(models, epochs, model_name, params, device, base_path):
     
     batch_size = params['batch_size']
     dataset = params['dataset']
+    L2 = params['L2_penalty']
     
     (train_dataloader, test_dataloader, training_data, test_data, 
         N_inputs, N_outputs) = load_dataset(dataset, batch_size, base_path)
@@ -536,8 +555,8 @@ def plot_losses(models, epochs, model_name, params, device, base_path):
         
         print('Calculating loss at epoch {}'.format(epoch))
 
-        train_l = evaluate_loss(train_dataloader, model, loss_fn, device)
-        test_l = evaluate_loss(test_dataloader, model, loss_fn, device)
+        train_l = evaluate_loss(train_dataloader, model, loss_fn, device, L2)
+        test_l = evaluate_loss(test_dataloader, model, loss_fn, device, 0.0)
         
         train_loss.append(train_l)
         test_loss.append(test_l)
@@ -682,7 +701,8 @@ def find_best_model(model_name_stub, base_path, device):
                 epoch = epochs[count]
                 model = models[count]
                     
-                test_l = evaluate_loss(test_dataloader, model, loss_fn, device)
+                test_l = evaluate_loss(test_dataloader, model, loss_fn, device, 
+                                       0.0)
                 
                 test_loss.append(test_l)
                 subsampled_epochs.append(epoch)

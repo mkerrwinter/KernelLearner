@@ -23,8 +23,8 @@ else:
 base_path = './'
 
 direc = '{}models/best_trained_model/'.format(base_path)
-param_path = '{}best_model_params.json'.format(direc)
-json_path = '{}best_model_epoch_441.json'.format(direc)
+param_path = '{}KernelLearner_params.json'.format(direc)
+json_path = '{}KernelLearner_epoch_0.json'.format(direc)
 
 loaded_model = aux.load_from_json_state_dict(param_path, json_path, device)
 

@@ -215,7 +215,8 @@ if __name__ == "__main__":
             torch.save(model.state_dict(), 
                        '{}{}_epoch_{}.pth'.format(model_output_dir, 
                                                                model_name, t))
-            l = aux.evaluate_loss(train_dataloader, model, loss_fn, device)
+            l = aux.evaluate_loss(train_dataloader, model, loss_fn, device, 
+                                  w_decay)
             train_loss.append(l)
             
             train_loss_outpath = data_output_dir + 'train_loss.txt'
@@ -228,7 +229,7 @@ if __name__ == "__main__":
                         f.write(out_string)
         
             test_loss.append(aux.evaluate_loss(test_dataloader, model, loss_fn, 
-                                            device))
+                                            device, 0.0))
             test_loss_outpath = data_output_dir + 'test_loss.txt'
             out_string = '{} {}\n'.format(t, test_loss[-1])
             try:
