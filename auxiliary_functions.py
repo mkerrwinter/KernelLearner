@@ -485,7 +485,7 @@ def evaluate_loss(dataloader, model, loss_fn, device, L2):
             param_sq_sum = param_sq.sum()
             L2_loss += L2*param_sq_sum/2.0
     
-    L2_loss = L2_loss.detach().numpy()
+        L2_loss = L2_loss.detach().numpy()
     
     loss += L2_loss
         
