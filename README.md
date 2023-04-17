@@ -5,7 +5,7 @@ This project consists of a set of files, designed to be run consecutively, that:
 - Train a network on this training set.
 - Make and validate predictions with the trained network.
 
-More details can be found in [XXXXXXX INCLUDE ARXIV LINK XXXXXXXX](https://arxiv.org/abs/2302.13682)
+More details can be found in [our paper.](https://arxiv.org/abs/2302.13682)
 
 Below is a description of the whole pipeline, in the order that it should be run.
 
