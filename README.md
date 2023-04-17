@@ -28,6 +28,6 @@ For a set of models sharing a name stub (default name_stub = 'F_to_K_test_model'
 In order to validate the kernel, $K$, measured from $F$ in the previous step, the GLE is solved using $K$ to produce a curve $\hat{F}$. $\hat{F}$ and $F$ are compared and close agreement between the two means the network has measured an accurate kernel.
 
 # Loading a pretrained model
-In the publication XXXXXXX INCLUDE ARXIV LINK XXXXXXXXX we describe our work training a model to extract memory kernels from hard sphere MCT data. The trained model is available at XXXXXXXXXXXXXXXXXXXXXXX. The file load_a_state_dict.py demonstrates a minimal example of loading this trained model from the directory ./models/best_trained_model. 
+In the [publication](https://arxiv.org/abs/2302.13682) we describe our work training a model to extract memory kernels from hard sphere MCT data. The trained model is available [here](https://zenodo.org/record/7603275#.ZDzdvC8RppR). The file load_a_state_dict.py demonstrates a minimal example of loading this trained model from the directory ./models/best_trained_model. 
 
 
