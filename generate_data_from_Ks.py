@@ -34,7 +34,7 @@ from julia import Pkg
 Pkg.add("ModeCouplingTheory")
 from julia import ModeCouplingTheory as mct
 
-base_path = './'
+base_path = '.'
 input_dir = '{}/data/example_1D_kernels/'.format(base_path)
 output_dir = '{}/data/example_GLE_data/'.format(base_path)
 
