@@ -59,7 +59,7 @@ def perform_PCA(data, order, outpath, debug):
     """
 
     pca = decomposition.PCA()
-    pca.n_components = data.shape[0]
+    pca.n_components = min(data.shape[0], data.shape[1])
     pca_data = pca.fit_transform(data)
 
     exp_var = pca.explained_variance_ratio_
